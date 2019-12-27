@@ -1,4 +1,7 @@
-import select, socket, sys, queue
+import select, socket, sys, queue, logging
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
 
 class Server():
     def __init__(self, host='192.168.1.13', port=8080, recv_buffer=4096):
@@ -23,11 +26,11 @@ class Server():
             # add server socket object to the list of readable connections
             self.inputs.append(self.server_socket)
 
-            print("Chat server listenning on port: {}, host: {}".format(self.port, self.host))
+            logging.info("Chat server listenning on port: {}, host: {}".format(self.port, self.host))
 
         except socket.error as error:
-            print(error)
-            print("Couldn't connect to the remote host: {}".format(self.host))
+            logging.warning(error)
+            logging.warning("Couldn't connect to the remote host: {}".format(self.host))
             sys.exit(1)
 
     # broadcast chat messages to all connected clients exept the socket in arg
@@ -56,7 +59,7 @@ class Server():
 
                     self.message_queues[connection] = queue.Queue()
 
-                    print('Client (%s, %s) connected' % client_address)
+                    logging.info('Client (%s, %s) connected' % client_address)
                 # a message from a client on a new connection
                 else:
                     try:
@@ -65,12 +68,12 @@ class Server():
 
                         if data:
                             # A readable client socket has data
-                            print('Received "%s" from %s' % (data, s.getpeername()))
+                            logging.info('Received "%s" from %s' % (data, s.getpeername()))
 
                             self.broadcast(s, data)
                         else:
                             # Interpret empty result as closed connection
-                            print('Closing', client_address, 'after reading no data')
+                            logging.warning('Closing {} after reading no data'.format(client_address))
 
                             # Stop listening for input on the connection
                             if s in self.outputs:
@@ -87,11 +90,11 @@ class Server():
                 try:
                     next_msg = self.message_queues[s].get_nowait()
                 except queue.Empty:
-                    print('Output queue for', s.getpeername(), 'is empty')
+                    logging.warning('Output queue for {} is empty'.format(s.getpeername()))
                     self.outputs.remove(s)
                 else:
                     try:
-                        print('Sending "%s" to %s' % (next_msg, s.getpeername()))
+                        logging.info('Sending "%s" to %s' % (next_msg, s.getpeername()))
                         s.send(next_msg)
                     except:
                         s.close()
@@ -99,7 +102,7 @@ class Server():
 
 
             for s in exceptional:
-                print('Handling exceptional condition for', s.getpeername())
+                logging.warning('Handling exceptional condition for {}'.format(s.getpeername()))
 
                 self.inputs.remove(s)
                 if s in self.outputs:
